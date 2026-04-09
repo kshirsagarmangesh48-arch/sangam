@@ -6,17 +6,23 @@ import 'package:sangam/features/auth/controllers/auth_controller.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sangam/l10n/app_localizations.dart';
 import 'package:sangam/features/settings/controllers/language_controller.dart';
+import 'package:sangam/features/settings/controllers/theme_controller.dart';
 import 'package:sangam/firebase_options.dart';
 import 'package:sangam/core/constants/global_keys.dart';
 import 'package:sangam/router/app_router.dart';
+import 'package:sangam/core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  // Initialize Push Notifications
+  await NotificationService.initialize();
 
   // Initialize Controllers (Dependency Injection)
   Get.put(AuthController());
   Get.put(LanguageController());
+  Get.put(ThemeController());
 
   runApp(const MyApp());
 }
@@ -27,13 +33,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final languageController = Get.find<LanguageController>();
+    final themeController = Get.find<ThemeController>();
     return Obx(() {
       return MaterialApp.router(
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         title: 'Sangam',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+        themeMode: themeController.themeMode,
         routerConfig: AppRouter.router,
         debugShowCheckedModeBanner: false,
         locale: languageController.locale,

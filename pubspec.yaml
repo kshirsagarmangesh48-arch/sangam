@@ -45,6 +45,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   shared_preferences: ^2.5.4
+  onesignal_flutter: ^5.5.1
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

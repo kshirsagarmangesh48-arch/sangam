@@ -11,6 +11,7 @@ class TransactionModel {
   final List<String> participants;
   final TransactionType type;
   final String category; // 'general', 'khorochi', 'hingane'
+  final String? paidByName;
 
   TransactionModel({
     required this.id,
@@ -21,6 +22,7 @@ class TransactionModel {
     required this.participants,
     required this.type,
     this.category = 'general',
+    this.paidByName,
   });
 
   factory TransactionModel.fromDocument(DocumentSnapshot doc) {
@@ -37,6 +39,7 @@ class TransactionModel {
         orElse: () => TransactionType.expense,
       ),
       category: data['category'] ?? 'general',
+      paidByName: data['paidByName'],
     );
   }
 
@@ -49,6 +52,7 @@ class TransactionModel {
       'participants': participants,
       'type': type.name,
       'category': category,
+      'paidByName': paidByName,
     };
   }
 }

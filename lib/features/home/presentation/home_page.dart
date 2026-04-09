@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:sangam/features/auth/controllers/auth_controller.dart';
 import 'package:sangam/features/expense/presentation/finance_dashboard.dart';
-import 'package:sangam/features/inventory/presentation/inventory_dashboard.dart';
-import 'package:sangam/features/settings/controllers/language_controller.dart';
+import 'package:sangam/features/settings/presentation/settings_page.dart';
 import 'package:sangam/l10n/app_localizations.dart';
 
 class HomePage extends StatefulWidget {
@@ -37,14 +34,11 @@ class _HomePageState extends State<HomePage> {
     // But FinancePage also displays title.
     FinancePage(category: 'khorochi', title: 'Khorochi Farm'),
     FinancePage(category: 'hingane', title: 'Hingane Farm'),
-    InventoryDashboard(),
+    SettingsPage(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final authController = Get.find<AuthController>();
-    final languageController = Get.find<LanguageController>();
-
     // Determine title based on index
     String appBarTitle;
     switch (_currentIndex) {
@@ -84,7 +78,7 @@ class _HomePageState extends State<HomePage> {
         appBarTitle = '${AppLocalizations.of(context)!.hingane} Farm';
         break;
       case 3:
-        appBarTitle = AppLocalizations.of(context)!.inventory;
+        appBarTitle = AppLocalizations.of(context)!.settings;
         break;
       default:
         appBarTitle = 'Sangam';
@@ -93,30 +87,6 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(appBarTitle),
-        actions: [
-          PopupMenuButton<Locale>(
-            icon: const Icon(Icons.language),
-            tooltip: 'Change Language',
-            onSelected: (Locale locale) {
-              languageController.changeLanguage(locale);
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<Locale>>[
-              const PopupMenuItem<Locale>(
-                value: Locale('en'),
-                child: Text('English'),
-              ),
-              const PopupMenuItem<Locale>(
-                value: Locale('mr'),
-                child: Text('मराठी'),
-              ),
-            ],
-          ),
-          IconButton(
-            onPressed: () => authController.logout(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-          ),
-        ],
       ),
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: NavigationBar(
@@ -143,9 +113,9 @@ class _HomePageState extends State<HomePage> {
             label: AppLocalizations.of(context)!.hingane,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.inventory_2_outlined),
-            selectedIcon: const Icon(Icons.inventory_2),
-            label: AppLocalizations.of(context)!.inventory,
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: AppLocalizations.of(context)!.settings,
           ),
         ],
       ),

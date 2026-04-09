@@ -7,6 +7,7 @@ import 'package:sangam/features/auth/controllers/auth_controller.dart';
 import 'package:sangam/features/expense/models/transaction_model.dart';
 import 'package:sangam/core/utils/app_snackbar.dart';
 import 'package:sangam/core/constants/global_keys.dart';
+import 'package:sangam/core/services/notification_service.dart';
 
 class FinanceController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -197,6 +198,7 @@ class FinanceController extends GetxController {
     required String description,
     required TransactionType type,
     required List<String> participants,
+    String? paidByName,
   }) async {
     isLoading.value = true;
     try {
@@ -243,6 +245,7 @@ class FinanceController extends GetxController {
           'description': description,
           'date': Timestamp.now(),
           'paidBy': currentUser.uid,
+          'paidByName': (paidByName != null && paidByName.trim().isNotEmpty) ? paidByName.trim() : (currentUser.email ?? '-'),
           'participants': participants,
           'type': type.name,
           'category': category,
@@ -262,6 +265,14 @@ class FinanceController extends GetxController {
       );
       rootNavigatorKey.currentState?.pop();
       fetchTransactions(); // Refresh list to show new item
+
+      // Fire off OneSignal push notification
+      NotificationService.sendTransactionNotification(
+        amount: amount,
+        description: description,
+        type: type.name,
+        paidByName: (paidByName != null && paidByName.trim().isNotEmpty) ? paidByName.trim() : (currentUser.email ?? '-'),
+      );
     } catch (e) {
       AppSnackBar.error('Error', 'Failed to add transaction: $e');
     } finally {

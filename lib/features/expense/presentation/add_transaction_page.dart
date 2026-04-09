@@ -16,6 +16,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _descController = TextEditingController();
+  final _paidByController = TextEditingController();
 
   TransactionType _selectedType = TransactionType.expense;
   String? _selectedCategory = 'general'; // Default to Home
@@ -26,6 +27,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   void dispose() {
     _amountController.dispose();
     _descController.dispose();
+    _paidByController.dispose();
     super.dispose();
   }
 
@@ -44,6 +46,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
           description: _descController.text.trim(),
           type: _selectedType,
           participants: [],
+          paidByName: _paidByController.text.trim(),
         );
       } finally {
         if (mounted) setState(() => _isSaving = false);
@@ -129,7 +132,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       style: ButtonStyle(
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.standard,
-                        padding: MaterialStateProperty.all(
+                        padding: WidgetStateProperty.all(
                           const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 12,
@@ -180,10 +183,12 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                         decimal: true,
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty)
+                        if (value == null || value.isEmpty) {
                           return AppLocalizations.of(context)!.enterAmount;
-                        if (double.tryParse(value) == null)
+                        }
+                        if (double.tryParse(value) == null) {
                           return AppLocalizations.of(context)!.invalidNumber;
+                        }
                         return null;
                       },
                     ),
@@ -196,10 +201,21 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       ),
                       textCapitalization: TextCapitalization.sentences,
                       validator: (value) {
-                        if (value == null || value.isEmpty)
+                        if (value == null || value.isEmpty) {
                           return AppLocalizations.of(context)!.enterDescription;
+                        }
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: _paidByController,
+                      decoration: const InputDecoration(
+                        labelText: 'Paid By Name (Optional)',
+                        hintText: 'Defaults to email if empty',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      textCapitalization: TextCapitalization.words,
                     ),
                     const SizedBox(height: 32),
                     SizedBox(

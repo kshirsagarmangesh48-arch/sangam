@@ -249,6 +249,12 @@ class _FinancePageState extends State<FinancePage> {
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(color: Colors.grey),
                                   ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Paid by: ${(transaction.paidByName == null || transaction.paidByName!.trim().isEmpty) ? '-' : transaction.paidByName}',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(color: Colors.grey, fontStyle: FontStyle.italic),
+                                  ),
                                 ],
                               ),
                             ),
