@@ -335,43 +335,57 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
   }
 
   Widget _buildWalletStats(dynamic wallet, ExpenseDashboardLoaded state) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
         ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Current Balance",
-            style: GoogleFonts.outfit(color: Colors.white70, fontSize: 14),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "₹${wallet['balance']}",
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          if (wallet['description'] != null && wallet['description'].toString().isNotEmpty) ...[
-            const SizedBox(height: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              wallet['description'],
-              style: const TextStyle(color: Colors.white60, fontSize: 13),
+              "Current Balance",
+              style: GoogleFonts.outfit(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                "₹${wallet['balance']}",
+                key: ValueKey("balance_${wallet['balance']}"),
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (wallet['description'] != null && wallet['description'].toString().isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                wallet['description'],
+                style: const TextStyle(color: Colors.white60, fontSize: 13),
+              ),
+            ],
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: _buildPaidByDistributionBar(state),
             ),
           ],
-          _buildPaidByDistributionBar(state),
-        ],
+        ),
       ),
     );
   }
