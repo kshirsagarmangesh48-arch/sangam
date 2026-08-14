@@ -13,6 +13,9 @@ class AuthRepository {
     if (response['success'] == true) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', response['data']['token']);
+      if (response['data']['refreshToken'] != null) {
+        await prefs.setString('refresh_token', response['data']['refreshToken']);
+      }
       await prefs.setString('user_name', response['data']['user']['name']);
       await prefs.setString('user_email', response['data']['user']['email']);
       await prefs.setString('user_role', response['data']['user']['role']);
@@ -41,7 +44,7 @@ class AuthRepository {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.clear(); // This clears access_token, refresh_token, and user details
   }
 
   Future<bool> isLoggedIn() async {

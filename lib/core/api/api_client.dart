@@ -10,6 +10,64 @@ class ApiClient {
 
   // Use a persistent client to enable connection reuse (Keep-Alive)
   static final http.Client _client = http.Client();
+  static Completer<bool>? _refreshCompleter;
+  static VoidCallback? onSessionExpired;
+
+  Future<bool> _refreshToken() async {
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
+    _refreshCompleter = Completer<bool>();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('refresh_token');
+      
+      if (refreshToken == null) {
+        _refreshCompleter!.complete(false);
+        _refreshCompleter = null;
+        return false;
+      }
+
+      final url = Uri.parse('$baseUrl/sangam-home/auth/refresh');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refreshToken': refreshToken}),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = jsonDecode(response.body);
+        // Accommodate possible response structures
+        final newAccessToken = data['data']?['token'] ?? data['token'];
+        final newRefreshToken = data['data']?['refreshToken'] ?? data['refreshToken'];
+
+        if (newAccessToken != null) {
+          await prefs.setString('access_token', newAccessToken);
+        }
+        if (newRefreshToken != null) {
+          await prefs.setString('refresh_token', newRefreshToken);
+        }
+        
+        _refreshCompleter!.complete(true);
+        _refreshCompleter = null;
+        return true;
+      } else {
+        // Clear prefs on failure to force logout
+        await prefs.clear();
+        _refreshCompleter!.complete(false);
+        _refreshCompleter = null;
+        onSessionExpired?.call();
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) print('Refresh token error: $e');
+      _refreshCompleter?.complete(false);
+      _refreshCompleter = null;
+      onSessionExpired?.call();
+      return false;
+    }
+  }
 
   Future<Map<String, dynamic>> post(
     String endpoint,
@@ -34,6 +92,25 @@ class ApiClient {
           .timeout(const Duration(seconds: 10));
 
       _logResponse('POST', url, response);
+
+      if (response.statusCode == 401 && !endpoint.contains('/auth/login')) {
+        final success = await _refreshToken();
+        if (success) {
+          final newToken = prefs.getString('access_token');
+          final retryResponse = await _client.post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              if (newToken != null) 'Authorization': 'Bearer $newToken',
+            },
+            body: jsonEncode(body),
+          ).timeout(const Duration(seconds: 10));
+          
+          _logResponse('POST Retry', url, retryResponse);
+          return _processResponse(retryResponse);
+        }
+      }
+
       return _processResponse(response);
     } on TimeoutException {
       throw Exception(
@@ -68,6 +145,25 @@ class ApiClient {
           .timeout(const Duration(seconds: 10));
 
       _logResponse('PUT', url, response);
+
+      if (response.statusCode == 401) {
+        final success = await _refreshToken();
+        if (success) {
+          final newToken = prefs.getString('access_token');
+          final retryResponse = await _client.put(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              if (newToken != null) 'Authorization': 'Bearer $newToken',
+            },
+            body: jsonEncode(body),
+          ).timeout(const Duration(seconds: 10));
+          
+          _logResponse('PUT Retry', url, retryResponse);
+          return _processResponse(retryResponse);
+        }
+      }
+
       return _processResponse(response);
     } on TimeoutException {
       throw Exception(
@@ -110,6 +206,24 @@ class ApiClient {
           .timeout(const Duration(seconds: 10));
 
       _logResponse('GET', uri, response);
+
+      if (response.statusCode == 401) {
+        final success = await _refreshToken();
+        if (success) {
+          final newToken = prefs.getString('access_token');
+          final retryResponse = await _client.get(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              if (newToken != null) 'Authorization': 'Bearer $newToken',
+            },
+          ).timeout(const Duration(seconds: 10));
+          
+          _logResponse('GET Retry', uri, retryResponse);
+          return _processResponse(retryResponse);
+        }
+      }
+
       return _processResponse(response);
     } on TimeoutException {
       throw Exception(
@@ -119,6 +233,34 @@ class ApiClient {
       if (kDebugMode) print('❌ API Error: $e');
       rethrow;
     }
+  }
+
+  Future<Map<String, dynamic>> delete(String endpoint) async {
+    final token = await _getToken();
+    final response = await _client.delete(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
+    
+    if (response.statusCode == 401) {
+      final success = await _refreshToken();
+      if (success) {
+        final newToken = await _getToken();
+        final retryResponse = await _client.delete(
+          Uri.parse('$baseUrl$endpoint'),
+          headers: {
+            'Content-Type': 'application/json',
+            if (newToken != null) 'Authorization': 'Bearer $newToken',
+          },
+        );
+        return _handleResponse(retryResponse);
+      }
+    }
+    
+    return _handleResponse(response);
   }
 
   void _logRequest(String method, Uri url, dynamic body) {
@@ -135,32 +277,8 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> delete(String endpoint) async {
-    final token = await _getToken();
-    final response = await _client.delete(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
-    );
-    return _handleResponse(response);
-  }
-
   Map<String, dynamic> _handleResponse(http.Response response) {
-    final contentType = response.headers['content-type'] ?? '';
-    if (!contentType.contains('application/json')) {
-      throw Exception(
-        'Server error: Received non-JSON response (${response.statusCode}). Check your API URL.',
-      );
-    }
-
-    final data = jsonDecode(response.body);
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return data;
-    } else {
-      throw Exception(data['message'] ?? 'Something went wrong');
-    }
+    return _processResponse(response);
   }
 
   Future<String?> _getToken() async {

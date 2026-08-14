@@ -2,6 +2,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:sangam_expense/features/auth/data/auth_repository.dart';
 
+import 'package:sangam_expense/core/api/api_client.dart';
+
 // Events
 abstract class AuthEvent extends Equatable {
   @override
@@ -62,6 +64,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository authRepository;
 
   AuthBloc(this.authRepository) : super(AuthInitial()) {
+    ApiClient.onSessionExpired = () {
+      add(LogoutRequested());
+    };
     on<AppStarted>((event, emit) async {
       final isLoggedIn = await authRepository.isLoggedIn();
       if (isLoggedIn) {

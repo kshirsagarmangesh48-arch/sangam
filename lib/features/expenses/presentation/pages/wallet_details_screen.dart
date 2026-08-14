@@ -20,6 +20,7 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
   DateTime? _selectedMonth;
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
+  bool _isInitial = true;
 
   @override
   void initState() {
@@ -31,7 +32,7 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_onTabOrFilterChanged);
     _scrollController.addListener(_onScroll);
-    
+
     // Initial fetch for the selected wallet
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _onTabOrFilterChanged();
@@ -55,12 +56,15 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       final state = context.read<ExpenseBloc>().state;
       if (state is ExpenseDashboardLoaded && state.pagination != null) {
         final pagination = state.pagination!;
         if (pagination['page'] < pagination['totalPages']) {
-          final type = _tabController.index == 0 ? null : (_tabController.index == 1 ? 'INCOME' : 'EXPENSE');
+          final type = _tabController.index == 0
+              ? null
+              : (_tabController.index == 1 ? 'INCOME' : 'EXPENSE');
           final filters = {
             'accountId': widget.wallet['id'],
             'memberId': _selectedMemberId,
@@ -70,7 +74,15 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
           };
           if (_selectedMonth != null) {
             filters['startDate'] = _selectedMonth!.toIso8601String();
-            filters['endDate'] = DateTime(_selectedMonth!.year, _selectedMonth!.month + 1, 0, 23, 59, 59, 999).toIso8601String();
+            filters['endDate'] = DateTime(
+              _selectedMonth!.year,
+              _selectedMonth!.month + 1,
+              0,
+              23,
+              59,
+              59,
+              999,
+            ).toIso8601String();
           }
           context.read<ExpenseBloc>().add(LoadMoreTransactions(filters));
         }
@@ -89,9 +101,15 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
     };
     if (_selectedMonth != null) {
       filters['startDate'] = _selectedMonth!.toIso8601String();
-      filters['endDate'] =
-          DateTime(_selectedMonth!.year, _selectedMonth!.month + 1, 0, 23, 59, 59, 999)
-              .toIso8601String();
+      filters['endDate'] = DateTime(
+        _selectedMonth!.year,
+        _selectedMonth!.month + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      ).toIso8601String();
     }
     // Fetch both transactions and stats for this specific wallet/filter
     context.read<ExpenseBloc>().add(FetchTransactionsRequested(filters));
@@ -104,26 +122,45 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
       listener: (context, state) {
         if (state is ExpenseSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.green),
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.green,
+            ),
           );
           // Refresh data with current filters when an action (add/delete/update) succeeds
           _onTabOrFilterChanged();
+        }
+        if (state is ExpenseDashboardLoaded && !state.isRefreshingTransactions) {
+          if (_isInitial) {
+            setState(() {
+              _isInitial = false;
+            });
+          }
         }
       },
       builder: (context, state) {
         if (state is ExpenseError) {
           return Scaffold(
-            appBar: AppBar(title: Text(widget.wallet['name'], style: GoogleFonts.outfit(fontWeight: FontWeight.bold))),
+            appBar: AppBar(
+              title: Text(
+                widget.wallet['name'],
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+              ),
+            ),
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.error_outline, size: 48, color: Colors.red),
                   const SizedBox(height: 16),
-                  Text(state.message, style: const TextStyle(color: Colors.grey)),
+                  Text(
+                    state.message,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    onPressed: () => context.read<ExpenseBloc>().add(FetchDashboardData()),
+                    onPressed: () =>
+                        context.read<ExpenseBloc>().add(FetchDashboardData()),
                     icon: const Icon(Icons.refresh),
                     label: const Text("Retry"),
                   ),
@@ -132,10 +169,20 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
             ),
           );
         }
-        
-        if (state is! ExpenseDashboardLoaded) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+
+        if (state is! ExpenseDashboardLoaded || _isInitial) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF5F7FA),
+            appBar: AppBar(
+              title: Text(
+                widget.wallet['name'],
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: Colors.white,
+              elevation: 0,
+              foregroundColor: Colors.black,
+            ),
+            body: const Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -161,7 +208,10 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                 DropdownButtonHideUnderline(
                   child: DropdownButton<DateTime>(
                     value: _selectedMonth,
-                    icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF1E3C72)),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Color(0xFF1E3C72),
+                    ),
                     style: GoogleFonts.outfit(
                       color: const Color(0xFF1E3C72),
                       fontWeight: FontWeight.bold,
@@ -175,7 +225,9 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                         _onTabOrFilterChanged();
                       }
                     },
-                    items: _getPastMonths().map<DropdownMenuItem<DateTime>>((DateTime date) {
+                    items: _getPastMonths().map<DropdownMenuItem<DateTime>>((
+                      DateTime date,
+                    ) {
                       return DropdownMenuItem<DateTime>(
                         value: date,
                         child: Text(DateFormat('MMM yyyy').format(date)),
@@ -186,43 +238,109 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
               const SizedBox(width: 16),
             ],
           ),
-          body: Column(
-            children: [
-              _buildWalletStats(walletInfo, state),
-              TabBar(
-                controller: _tabController,
-                labelColor: const Color(0xFF1E3C72),
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: const Color(0xFF1E3C72),
-                labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                tabs: const [
-                  Tab(text: "All"),
-                  Tab(text: "Income"),
-                  Tab(text: "Expense"),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildMemberChips(state.familyMembers),
-              const SizedBox(height: 12),
-              Expanded(
-                child: state.isRefreshingTransactions
-                    ? const Center(child: CircularProgressIndicator())
-                    : Column(
+          body: OrientationBuilder(
+            builder: (context, orientation) {
+              if (orientation == Orientation.landscape) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            _buildWalletStats(walletInfo, state),
+                            const SizedBox(height: 8),
+                            _buildMemberChips(state.familyMembers),
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: _buildTransactionList(walletTransactions),
+                          TabBar(
+                            controller: _tabController,
+                            labelColor: const Color(0xFF1E3C72),
+                            unselectedLabelColor: Colors.grey,
+                            indicatorColor: const Color(0xFF1E3C72),
+                            labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                            tabs: const [
+                              Tab(text: "All"),
+                              Tab(text: "Income"),
+                              Tab(text: "Expense"),
+                            ],
                           ),
-                          if (state.isLoadingMore)
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: state.isRefreshingTransactions
+                                ? const Center(child: CircularProgressIndicator())
+                                : Column(
+                                    children: [
+                                      Expanded(
+                                        child: _buildTransactionList(walletTransactions),
+                                      ),
+                                      if (state.isLoadingMore)
+                                        const Padding(
+                                          padding: EdgeInsets.all(8.0),
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                          ),
                         ],
                       ),
-              ),
-            ],
+                    ),
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  _buildWalletStats(walletInfo, state),
+                  TabBar(
+                    controller: _tabController,
+                    labelColor: const Color(0xFF1E3C72),
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: const Color(0xFF1E3C72),
+                    labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                    tabs: const [
+                      Tab(text: "All"),
+                      Tab(text: "Income"),
+                      Tab(text: "Expense"),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildMemberChips(state.familyMembers),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: state.isRefreshingTransactions
+                        ? const Center(child: CircularProgressIndicator())
+                        : Column(
+                            children: [
+                              Expanded(
+                                child: _buildTransactionList(walletTransactions),
+                              ),
+                              if (state.isLoadingMore)
+                                const Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
+                ],
+              );
+            },
           ),
           bottomNavigationBar: Container(
             padding: const EdgeInsets.all(20),
@@ -288,10 +406,11 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
   }
 
   Widget _buildMemberChips(List<dynamic> members) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
+      child: Wrap(
+        spacing: 8.0,
+        runSpacing: 8.0,
         children: [
           ChoiceChip(
             label: const Text("Everyone"),
@@ -300,7 +419,7 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
               setState(() => _selectedMemberId = null);
               _onTabOrFilterChanged();
             },
-            selectedColor: const Color(0xFF1E3C72).withOpacity(0.2),
+            selectedColor: const Color(0xFF1E3C72).withValues(alpha: 0.2),
             labelStyle: GoogleFonts.outfit(
               color: _selectedMemberId == null
                   ? const Color(0xFF1E3C72)
@@ -308,24 +427,20 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(width: 8),
           ...members.map(
-            (m) => Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: ChoiceChip(
-                label: Text(m['name']),
-                selected: _selectedMemberId == m['id'],
-                onSelected: (val) {
-                  setState(() => _selectedMemberId = val ? m['id'] : null);
-                  _onTabOrFilterChanged();
-                },
-                selectedColor: const Color(0xFF1E3C72).withOpacity(0.2),
-                labelStyle: GoogleFonts.outfit(
-                  color: _selectedMemberId == m['id']
-                      ? const Color(0xFF1E3C72)
-                      : Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
+            (m) => ChoiceChip(
+              label: Text(m['name']),
+              selected: _selectedMemberId == m['id'],
+              onSelected: (val) {
+                setState(() => _selectedMemberId = val ? m['id'] : null);
+                _onTabOrFilterChanged();
+              },
+              selectedColor: const Color(0xFF1E3C72).withValues(alpha: 0.2),
+              labelStyle: GoogleFonts.outfit(
+                color: _selectedMemberId == m['id']
+                    ? const Color(0xFF1E3C72)
+                    : Colors.grey,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -370,7 +485,8 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                 ),
               ),
             ),
-            if (wallet['description'] != null && wallet['description'].toString().isNotEmpty) ...[
+            if (wallet['description'] != null &&
+                wallet['description'].toString().isNotEmpty) ...[
               const SizedBox(height: 16),
               Text(
                 wallet['description'],
@@ -391,8 +507,11 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
   }
 
   Widget _buildPaidByDistributionBar(ExpenseDashboardLoaded state) {
-    final distribution = state.filterStats?['paidByDistribution'] as List<dynamic>?;
-    if (distribution == null || distribution.isEmpty) return const SizedBox.shrink();
+    final distribution =
+        state.filterStats?['paidByDistribution'] as List<dynamic>?;
+    if (distribution == null || distribution.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     final members = state.familyMembers;
 
@@ -410,7 +529,9 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
 
     if (totalAbsolute == 0) return const SizedBox.shrink();
 
-    final activeMembers = members.where((m) => memberNetAmounts.containsKey(m['id'])).toList();
+    final activeMembers = members
+        .where((m) => memberNetAmounts.containsKey(m['id']))
+        .toList();
     if (activeMembers.isEmpty) return const SizedBox.shrink();
 
     final List<Color> barColors = [
@@ -432,7 +553,9 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
           int idx = entry.key;
           var m = entry.value;
           double amount = memberNetAmounts[m['id']]!;
-          double percentage = totalAbsolute > 0 ? (amount.abs() / totalAbsolute) : 0;
+          double percentage = totalAbsolute > 0
+              ? (amount.abs() / totalAbsolute)
+              : 0;
           Color barColor = barColors[idx % barColors.length];
 
           return Padding(
@@ -454,7 +577,9 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                     Text(
                       "₹${amount.toStringAsFixed(0)}",
                       style: GoogleFonts.outfit(
-                        color: amount > 0 ? Colors.greenAccent : (amount < 0 ? Colors.redAccent : Colors.white),
+                        color: amount > 0
+                            ? Colors.greenAccent
+                            : (amount < 0 ? Colors.redAccent : Colors.white),
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
                       ),
@@ -474,7 +599,7 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -519,7 +644,10 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(icon, color: color, size: 24),
               ),
               const SizedBox(width: 16),
@@ -553,10 +681,14 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                       ],
                     ),
                     const SizedBox(height: 4),
-                    if (t['description'] != null && t['description'].toString().isNotEmpty) ...[
+                    if (t['description'] != null &&
+                        t['description'].toString().isNotEmpty) ...[
                       Text(
                         t['description'],
-                        style: const TextStyle(fontSize: 13, color: Colors.black87),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -570,17 +702,34 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
-                                DateFormat('dd MMM yyyy').format(DateTime.parse(t['date'])),
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                DateFormat(
+                                  'dd MMM yyyy',
+                                ).format(DateTime.parse(t['date'])),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
                               ),
                               if (!isExpense && t['spentBy'] != null) ...[
-                                const Text(" • ", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                const Text(
+                                  " • ",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                                 InkWell(
-                                  onTap: () => _showReassignMemberSheet(context, t),
+                                  onTap: () =>
+                                      _showReassignMemberSheet(context, t),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1E3C72).withValues(alpha: 0.1),
+                                      color: const Color(
+                                        0xFF1E3C72,
+                                      ).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Row(
@@ -595,19 +744,35 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                                           ),
                                         ),
                                         const SizedBox(width: 4),
-                                        const Icon(Icons.sync_alt, size: 10, color: Color(0xFF1E3C72)),
+                                        const Icon(
+                                          Icons.sync_alt,
+                                          size: 10,
+                                          color: Color(0xFF1E3C72),
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ),
                               ] else if (isExpense && t['paidBy'] != null) ...[
-                                const Text(" • ", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                const Text(
+                                  " • ",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                                 InkWell(
-                                  onTap: () => _showReassignMemberSheet(context, t),
+                                  onTap: () =>
+                                      _showReassignMemberSheet(context, t),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: Colors.orange.withValues(alpha: 0.1),
+                                      color: Colors.orange.withValues(
+                                        alpha: 0.1,
+                                      ),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Row(
@@ -622,7 +787,11 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                                           ),
                                         ),
                                         const SizedBox(width: 4),
-                                        const Icon(Icons.sync_alt, size: 10, color: Colors.deepOrange),
+                                        const Icon(
+                                          Icons.sync_alt,
+                                          size: 10,
+                                          color: Colors.deepOrange,
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -635,7 +804,11 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
                           onTap: () => _confirmDelete(context, t['id']),
                           child: const Padding(
                             padding: EdgeInsets.only(left: 8.0),
-                            child: Icon(Icons.delete_outline, color: Colors.grey, size: 20),
+                            child: Icon(
+                              Icons.delete_outline,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ],
@@ -690,7 +863,9 @@ class _WalletDetailsScreenState extends State<WalletDetailsScreen>
     final state = context.read<ExpenseBloc>().state as ExpenseDashboardLoaded;
     final isExpense = transaction['type'] == 'EXPENSE';
     final sheetTitle = isExpense ? "Reassign Paid By" : "Reassign Income To";
-    final currentMemberId = isExpense ? transaction['paidById'] : transaction['spentById'];
+    final currentMemberId = isExpense
+        ? transaction['paidById']
+        : transaction['spentById'];
     final fieldToUpdate = isExpense ? 'paidById' : 'spentById';
 
     showModalBottomSheet(

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:sangam_expense/core/utils/toast_utils.dart';
 import 'package:sangam_expense/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:sangam_expense/features/expenses/presentation/bloc/expense_bloc.dart';
@@ -78,7 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () => context.read<ExpenseBloc>().add(FetchDashboardData()),
+                  onPressed: () =>
+                      context.read<ExpenseBloc>().add(FetchDashboardData()),
                   icon: const Icon(Icons.refresh),
                   label: const Text("Retry"),
                 ),
@@ -138,14 +138,16 @@ class _HomeScreenState extends State<HomeScreen> {
         (context.read<AuthBloc>().state as AuthAuthenticated).user['role'] ==
             'ADMIN';
 
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isLandscape ? 4 : 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.1,
+        childAspectRatio: isLandscape ? 1.3 : 1.1,
       ),
       itemCount: accounts.length + (isAdmin ? 2 : 0),
       itemBuilder: (context, index) {
@@ -411,9 +413,11 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        height: MediaQuery.of(context).size.height * 0.7,
+      builder: (context) {
+        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          height: MediaQuery.of(context).size.height * (isLandscape ? 0.9 : 0.7),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -453,7 +457,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -660,11 +665,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
           // No default member selection — leave both null
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 if (widget.initialType == null) ...[
                   SegmentedButton<String>(
                     segments: const [
@@ -760,16 +768,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         value: null,
                         child: Text("None"),
                       ),
-                      ...state.familyMembers
-                          .map<DropdownMenuItem<int?>>(
-                            (m) => DropdownMenuItem<int?>(
-                              value: m['id'],
-                              child: Text(m['name']),
-                            ),
-                          ),
+                      ...state.familyMembers.map<DropdownMenuItem<int?>>(
+                        (m) => DropdownMenuItem<int?>(
+                          value: m['id'],
+                          child: Text(m['name']),
+                        ),
+                      ),
                     ],
                     onChanged: (val) => setState(() => _spentById = val),
-                    value: _spentById,
+                    initialValue: _spentById,
                   ),
                 ],
                 if (_type == 'EXPENSE') ...[
@@ -784,16 +791,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         value: null,
                         child: Text("None"),
                       ),
-                      ...state.familyMembers
-                          .map<DropdownMenuItem<int?>>(
-                            (m) => DropdownMenuItem<int?>(
-                              value: m['id'],
-                              child: Text(m['name']),
-                            ),
-                          ),
+                      ...state.familyMembers.map<DropdownMenuItem<int?>>(
+                        (m) => DropdownMenuItem<int?>(
+                          value: m['id'],
+                          child: Text(m['name']),
+                        ),
+                      ),
                     ],
                     onChanged: (val) => setState(() => _paidById = val),
-                    value: _paidById,
+                    initialValue: _paidById,
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -847,6 +853,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ),
                 ),
               ],
+                ),
+              ),
             ),
           );
         },
