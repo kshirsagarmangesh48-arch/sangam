@@ -13,8 +13,13 @@ import 'manage_categories_bottom_sheet.dart';
 
 class UploadDocumentSheet extends StatefulWidget {
   final SangamUserEntity user;
+  final String? initialCategory;
 
-  const UploadDocumentSheet({super.key, required this.user});
+  const UploadDocumentSheet({
+    super.key,
+    required this.user,
+    this.initialCategory,
+  });
 
   @override
   State<UploadDocumentSheet> createState() => _UploadDocumentSheetState();
@@ -27,6 +32,12 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
 
   PlatformFile? _selectedFile;
   String? _selectedCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = widget.initialCategory;
+  }
   int _selectedFileSize = 0;
   Uint8List? _selectedFileBytes;
   bool _isSubmitting = false;
