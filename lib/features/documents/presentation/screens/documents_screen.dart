@@ -244,7 +244,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     final colors = context.colors;
     final categories = state.categories;
     final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = screenWidth > 600 ? 3 : 2;
+    final crossAxisCount = screenWidth > 1100
+        ? 5
+        : (screenWidth > 800 ? 4 : (screenWidth > 550 ? 3 : 2));
 
     final hasAddCard = widget.user.isAdmin;
     final totalItems = 1 + categories.length + (hasAddCard ? 1 : 0);
@@ -257,7 +259,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 1.35,
+        childAspectRatio: screenWidth > 600 ? 1.45 : 1.35,
       ),
       itemCount: totalItems,
       itemBuilder: (context, index) {

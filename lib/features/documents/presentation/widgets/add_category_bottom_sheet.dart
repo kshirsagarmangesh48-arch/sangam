@@ -98,17 +98,23 @@ class _AddCategoryBottomSheetState extends State<AddCategoryBottomSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isEditing = widget.category != null;
 
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: bottomInset + 20,
-      ),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 640,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: bottomInset + 20,
+          ),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
       child: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -300,6 +306,8 @@ class _AddCategoryBottomSheetState extends State<AddCategoryBottomSheet> {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

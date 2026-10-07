@@ -85,10 +85,7 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
         }
 
         // 2. Validate Max size 5MB
-        int size = file.lengthSync() ?? 0;
-        if (size == 0) {
-          size = (await file.length()) ?? 0;
-        }
+        int size = file.lengthSync() ?? (await file.length()) ?? 0;
 
         if (size > _maxFileSizeBytes) {
           final sizeMb = (size / (1024 * 1024)).toStringAsFixed(2);
@@ -105,10 +102,7 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
           return;
         }
 
-        Uint8List? bytes;
-        if (kIsWeb || file.path == null) {
-          bytes = await file.readAsBytes();
-        }
+        final bytes = await file.readAsBytes();
 
         setState(() {
           _selectedFile = file;
@@ -207,20 +201,23 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
     final text = context.text;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: bottomInset + 20,
-      ),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 640,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: bottomInset + 20,
+          ),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
       child: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -567,6 +564,8 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

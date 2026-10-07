@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/file_download_helper.dart';
 import '../../data/services/document_file_service.dart';
 import '../../domain/entities/document_entity.dart';
 import '../screens/document_viewer_screen.dart';
@@ -45,13 +49,21 @@ class DocumentCard extends StatelessWidget {
     }
 
     if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Viewing documents in native viewer is supported on mobile & desktop',
+      final url = document.fileUrl;
+      if (url != null && url.isNotEmpty) {
+        final resolvedUrl = ApiEndpoints.resolveDocumentUrl(url);
+        openInNewTabWeb(resolvedUrl);
+      } else {
+        final fileService = context.read<DocumentFileService>();
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DocumentViewerScreen(
+              document: document,
+              fileService: fileService,
+            ),
           ),
-        ),
-      );
+        );
+      }
       return;
     }
 
@@ -202,11 +214,108 @@ class DocumentCard extends StatelessWidget {
     }
   }
 
+  Future<void> _downloadFile(BuildContext context) async {
+    final url = document.fileUrl;
+    if (url == null || url.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No download URL available for this document')),
+        );
+      }
+      return;
+    }
+
+    final resolvedUrl = ApiEndpoints.resolveDocumentUrl(url);
+
+    if (kIsWeb) {
+      try {
+        final fileService = context.read<DocumentFileService>();
+        final response = await fileService.dio.get<List<int>>(
+          resolvedUrl,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (response.data != null) {
+          triggerWebDownload(
+            url: resolvedUrl,
+            fileName: document.fileName,
+            bytes: Uint8List.fromList(response.data!),
+          );
+        } else {
+          triggerWebDownload(
+            url: resolvedUrl,
+            fileName: document.fileName,
+          );
+        }
+      } catch (_) {
+        triggerWebDownload(
+          url: resolvedUrl,
+          fileName: document.fileName,
+        );
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Downloaded "${document.fileName}"!'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final fileService = context.read<DocumentFileService>();
+      await fileService.downloadDocument(
+        url: url,
+        docId: document.id,
+        fileName: document.fileName,
+        category: document.category,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved "${document.fileName}" to SangamVault/Downloads!'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _shareFile(BuildContext context) async {
     if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File sharing is supported on mobile & desktop')),
-      );
+      final url = document.fileUrl;
+      if (url != null && url.isNotEmpty) {
+        final resolvedUrl = ApiEndpoints.resolveDocumentUrl(url);
+        await Clipboard.setData(ClipboardData(text: resolvedUrl));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text('Document link copied to clipboard!'),
+                ],
+              ),
+              backgroundColor: Color(0xFF10B981),
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No link available to share')),
+          );
+        }
+      }
       return;
     }
 
@@ -426,6 +535,7 @@ class DocumentCard extends StatelessWidget {
                           ),
                         );
                       }
+                      if (value == 'download') _downloadFile(context);
                       if (value == 'share') _shareFile(context);
                       if (value == 'delete') _confirmDelete(context);
                     },
@@ -447,6 +557,16 @@ class DocumentCard extends StatelessWidget {
                             Icon(Icons.info_outline_rounded, size: 20),
                             SizedBox(width: 12),
                             Text('Preview & Info'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'download',
+                        child: Row(
+                          children: [
+                            Icon(Icons.download_rounded, size: 20),
+                            SizedBox(width: 12),
+                            Text('Download Document'),
                           ],
                         ),
                       ),

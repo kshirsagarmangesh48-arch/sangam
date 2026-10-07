@@ -2,11 +2,13 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/file_download_helper.dart';
 import '../../domain/entities/document_entity.dart';
 import '../../data/services/document_file_service.dart';
 
@@ -37,6 +39,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   }
 
   Future<void> _checkLocalCache() async {
+    if (kIsWeb) return;
+
     // 1. Check if document already has a valid local filePath
     if (widget.document.filePath != null && widget.document.filePath!.isNotEmpty) {
       final f = File(widget.document.filePath!);
@@ -83,6 +87,71 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       _isDownloading = true;
       _downloadProgress = 0.0;
     });
+
+    if (kIsWeb) {
+      try {
+        if (url != null && url.isNotEmpty) {
+          final resolvedUrl = ApiEndpoints.resolveDocumentUrl(url);
+          try {
+            final response = await widget.fileService.dio.get<List<int>>(
+              resolvedUrl,
+              options: Options(responseType: ResponseType.bytes),
+              onReceiveProgress: (received, total) {
+                if (total > 0 && mounted) {
+                  setState(() {
+                    _downloadProgress = received / total;
+                  });
+                }
+              },
+            );
+
+            if (response.data != null) {
+              triggerWebDownload(
+                url: resolvedUrl,
+                fileName: widget.document.fileName,
+                bytes: Uint8List.fromList(response.data!),
+              );
+            } else {
+              triggerWebDownload(
+                url: resolvedUrl,
+                fileName: widget.document.fileName,
+              );
+            }
+          } catch (_) {
+            triggerWebDownload(
+              url: resolvedUrl,
+              fileName: widget.document.fileName,
+            );
+          }
+
+          if (mounted) {
+            setState(() {
+              _isDownloading = false;
+              _isCached = true;
+            });
+
+            if (showSuccessSnackBar) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Document "${widget.document.fileName}" downloaded!'),
+                  backgroundColor: context.familyTheme.success,
+                ),
+              );
+            }
+          }
+          return true;
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isDownloading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Download failed: $e')),
+          );
+        }
+        return false;
+      }
+      return false;
+    }
 
     try {
       if (url != null && url.isNotEmpty) {
@@ -151,7 +220,18 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   }
 
   Future<void> _openInSystemApp() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      final url = widget.document.fileUrl;
+      if (url != null && url.isNotEmpty) {
+        final resolvedUrl = ApiEndpoints.resolveDocumentUrl(url);
+        openInNewTabWeb(resolvedUrl);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No URL available to open this document')),
+        );
+      }
+      return;
+    }
 
     var path = _localFilePath ?? widget.document.filePath ?? '';
     if (path.isEmpty || !await File(path).exists()) {
@@ -185,6 +265,35 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   }
 
   Future<void> _shareFile() async {
+    if (kIsWeb) {
+      final url = widget.document.fileUrl;
+      if (url != null && url.isNotEmpty) {
+        final resolvedUrl = ApiEndpoints.resolveDocumentUrl(url);
+        await Clipboard.setData(ClipboardData(text: resolvedUrl));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text('Document link copied to clipboard!'),
+                ],
+              ),
+              backgroundColor: context.familyTheme.success,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No link available to share')),
+          );
+        }
+      }
+      return;
+    }
+
     final path = _localFilePath ?? widget.document.filePath ?? '';
     if (path.isNotEmpty && await File(path).exists()) {
       await SharePlus.instance.share(
@@ -266,7 +375,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.open_in_new_rounded),
-            tooltip: 'Open with app',
+            tooltip: kIsWeb ? 'Open in new tab' : 'Open with app',
             onPressed: _openInSystemApp,
           ),
         ],
@@ -393,7 +502,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                       Expanded(
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.open_in_new_rounded),
-                          label: const Text('Open Viewer'),
+                          label: Text(kIsWeb ? 'Open in New Tab' : 'Open Viewer'),
                           onPressed: _openInSystemApp,
                         ),
                       ),
@@ -411,7 +520,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   Widget _buildPreviewBody() {
     // 1. If Image
     if (widget.document.isImage) {
-      if (_localFilePath != null && File(_localFilePath!).existsSync()) {
+      if (!kIsWeb && _localFilePath != null && File(_localFilePath!).existsSync()) {
         return InteractiveViewer(
           minScale: 0.8,
           maxScale: 4.0,
@@ -503,15 +612,32 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            icon: const Icon(Icons.open_in_new_rounded),
-            label: const Text('Open Document'),
-            onPressed: _openInSystemApp,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                icon: const Icon(Icons.open_in_new_rounded),
+                label: Text(kIsWeb ? 'Open in Browser' : 'Open Document'),
+                onPressed: _openInSystemApp,
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white54),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('Download'),
+                onPressed: _downloadFile,
+              ),
+            ],
           ),
         ],
       ),

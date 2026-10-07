@@ -67,6 +67,8 @@ class DocumentFileService {
     required String fileName,
     required String category,
   }) async {
+    if (kIsWeb) return fileName;
+
     final targetDir = await getDedicatedFolder(category: category);
     final sanitizedName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
     final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
