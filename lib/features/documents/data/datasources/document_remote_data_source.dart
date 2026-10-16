@@ -256,10 +256,21 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
   }
 
   String _extractErrorMessage(DioException e, String defaultMessage) {
+    if (e.response?.statusCode == 413) {
+      return 'File size is too large for the server. Maximum allowed size is 20MB.';
+    }
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'Upload timed out. The file may be too large for your network connection. Please try again.';
+    }
     if (e.response?.data != null && e.response?.data is Map) {
       final map = e.response!.data as Map;
       if (map.containsKey('message') && map['message'] != null) {
         return map['message'].toString();
+      }
+      if (map.containsKey('error') && map['error'] != null) {
+        return map['error'].toString();
       }
     }
     return e.message ?? defaultMessage;

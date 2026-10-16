@@ -417,7 +417,7 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Upload PDFs or Images (up to 5MB) into this category to view and organize them here.',
+                              'Upload PDFs or Images (up to 20MB) into this category to view and organize them here.',
                               style: text.bodySmall?.copyWith(
                                 color: colors.onSurfaceVariant,
                               ),

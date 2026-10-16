@@ -155,6 +155,8 @@ class DocumentBloc extends Bloc<DocumentEvent, DocumentState> {
     UploadDocumentRequested event,
     Emitter<DocumentState> emit,
   ) async {
+    final previousLoaded = state is DocumentLoaded ? state as DocumentLoaded : null;
+
     try {
       await documentRepository.uploadDocument(
         name: event.name,
@@ -194,7 +196,14 @@ class DocumentBloc extends Bloc<DocumentEvent, DocumentState> {
         ),
       );
     } catch (e) {
-      emit(DocumentError('Failed to upload document: ${e.toString()}'));
+      final raw = e.toString();
+      final cleanMsg = raw.startsWith('Exception: ')
+          ? raw.substring(11)
+          : raw;
+      emit(DocumentError('Upload failed: $cleanMsg'));
+      if (previousLoaded != null) {
+        emit(previousLoaded);
+      }
     }
   }
 

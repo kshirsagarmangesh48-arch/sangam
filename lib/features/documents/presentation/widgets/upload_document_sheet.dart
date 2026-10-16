@@ -42,7 +42,8 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
   Uint8List? _selectedFileBytes;
   bool _isSubmitting = false;
 
-  static const int _maxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+  static const int _maxFileSizeBytes = 20 * 1024 * 1024; // 20 MB
+  static const int _warningFileSizeBytes = 10 * 1024 * 1024; // 10 MB warning threshold
   static const List<String> _allowedExtensions = [
     'pdf',
     'png',
@@ -84,7 +85,7 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
           return;
         }
 
-        // 2. Validate Max size 5MB
+        // 2. Validate Max size 20MB
         int size = file.lengthSync() ?? (await file.length()) ?? 0;
 
         if (size > _maxFileSizeBytes) {
@@ -93,13 +94,28 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'File size ($sizeMb MB) exceeds the 5MB limit. Please select a smaller file.',
+                  'File size ($sizeMb MB) exceeds the 20MB limit. Please select a smaller file.',
                 ),
                 backgroundColor: Colors.red,
               ),
             );
           }
           return;
+        }
+
+        if (size >= _warningFileSizeBytes) {
+          final sizeMb = (size / (1024 * 1024)).toStringAsFixed(1);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Large file selected ($sizeMb MB). Uploading may take slightly longer.',
+                ),
+                backgroundColor: Colors.amber.shade800,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
         }
 
         final bytes = await file.readAsBytes();
@@ -149,7 +165,7 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
     if (_selectedFileSize > _maxFileSizeBytes) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Selected file exceeds 5MB limit'),
+          content: Text('Selected file exceeds 20MB limit'),
           backgroundColor: Colors.red,
         ),
       );
@@ -187,10 +203,16 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
 
     Navigator.of(context).pop();
 
+    final isLarge = _selectedFileSize >= _warningFileSizeBytes;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Uploading "${_nameController.text.trim()}" to server...'),
-        backgroundColor: context.familyTheme.success,
+        content: Text(
+          isLarge
+              ? 'Uploading large file "${_nameController.text.trim()}" (${_formatBytes(_selectedFileSize)})... Please wait.'
+              : 'Uploading "${_nameController.text.trim()}" to server...',
+        ),
+        backgroundColor: isLarge ? Colors.amber.shade800 : context.familyTheme.success,
+        duration: Duration(seconds: isLarge ? 5 : 3),
       ),
     );
   }
@@ -267,7 +289,7 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
                             ),
                           ),
                           Text(
-                            'PDF and Images only • Max 5MB',
+                            'PDF and Images only • Max 20MB',
                             style: text.bodySmall?.copyWith(
                               color: colors.onSurfaceVariant,
                               fontSize: 11,
@@ -328,7 +350,7 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Formats: PDF, JPG, PNG, WebP (Max 5MB)',
+                          'Formats: PDF, JPG, PNG, WebP (Max 20MB)',
                           style: text.bodySmall?.copyWith(
                             color: colors.onSurfaceVariant,
                             fontSize: 11,
@@ -377,11 +399,36 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              '${_formatBytes(_selectedFileSize)} • ${_selectedFile!.extension?.toUpperCase()}',
-                              style: text.bodySmall?.copyWith(
-                                color: colors.onSurfaceVariant,
-                              ),
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 6,
+                              children: [
+                                Text(
+                                  '${_formatBytes(_selectedFileSize)} • ${_selectedFile!.extension?.toUpperCase()}',
+                                  style: text.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                                if (_selectedFileSize >= _warningFileSizeBytes)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Large File',
+                                      style: text.labelSmall?.copyWith(
+                                        color: Colors.amber.shade900,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
@@ -394,6 +441,55 @@ class _UploadDocumentSheetState extends State<UploadDocumentSheet> {
                     ],
                   ),
                 ),
+
+              // File size warning if large (>= 10MB)
+              if (_selectedFile != null && _selectedFileSize >= _warningFileSizeBytes) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.amber.shade700.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.amber.shade800,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Large File (${_formatBytes(_selectedFileSize)})',
+                              style: text.labelMedium?.copyWith(
+                                color: Colors.amber.shade900,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'File is larger than 10MB. Uploading might take longer depending on connection speed. Please keep the app open.',
+                              style: text.bodySmall?.copyWith(
+                                color: Colors.amber.shade900,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 18),
 
